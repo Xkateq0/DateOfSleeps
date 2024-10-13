@@ -10,7 +10,7 @@ def save_title():
     file_exists = os.path.isfile("sleep_data.txt")
     with open("sleep_data.txt", "a") as file:
         if not file_exists:
-            file.write("Data;Czas snu;Czas snu lekkiego;Czas snu głębokiego;Czas fazy REM\n")
+            file.write("Data;Czas snu;Czas snu lekkiego;Czas snu glebokiego;Czas fazy REM\n")
 
 
 def save_data_to_txt(date, sleep_duration, light_sleep_duration, deep_sleep_duration, rem_duration):
@@ -58,7 +58,6 @@ class SleepApp(QMainWindow):
         self.visualize_btn.clicked.connect(self.visualize_data)
         self.layout.addWidget(self.visualize_btn)
 
-        # Nowy przycisk do ponownej wizualizacji
         self.restart_visualize_btn = QPushButton("Restartuj wizualizację")
         self.restart_visualize_btn.clicked.connect(self.visualize_data)
         self.layout.addWidget(self.restart_visualize_btn)
@@ -126,7 +125,7 @@ class SleepApp(QMainWindow):
             rem_durations = []
 
             with open("sleep_data.txt", "r") as file:
-                lines = file.readlines()[1:]  # Pomiń nagłówek
+                lines = file.readlines()[1:]
 
                 for line in lines:
                     parts = line.strip().split(';')
@@ -137,7 +136,6 @@ class SleepApp(QMainWindow):
                         deep_sleep_durations.append(float(parts[3]))
                         rem_durations.append(float(parts[4]))
 
-            # Uporządkowanie danych według dat
             sorted_data = sorted(
                 zip(dates, sleep_durations, light_sleep_durations, deep_sleep_durations, rem_durations),
                 key=lambda x: x[0])
