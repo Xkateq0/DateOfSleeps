@@ -1,25 +1,26 @@
 import sys
 import os
 import matplotlib.pyplot as plt
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QFormLayout, QLineEdit, QPushButton, QMessageBox, QGroupBox
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QFormLayout, QLineEdit, QPushButton, QMessageBox, QGroupBox , QInputDialog, QDialog , QLabel
 from PySide6.QtGui import QCloseEvent
 from datetime import datetime
+import numpy as np
 
 
 def save_title():
     file_exists = os.path.isfile("sleep_data.txt")
-    with open("sleep_data.txt", "a") as file:
+    with open("sleep_data.txt", "a", encoding="utf-8") as file:
         if not file_exists:
-            file.write("Data;Czas snu;Czas snu lekkiego;Czas snu glebokiego;Czas fazy REM\n")
+            file.write("Data;Czas snu;Czas snu lekkiego;Czas snu głębokiego;Czas fazy REM\n")
 
 
 def save_data_to_txt(date, sleep_duration, light_sleep_duration, deep_sleep_duration, rem_duration):
-    with open("sleep_data.txt", "a") as file:
+    with open("sleep_data.txt", "a", encoding="utf-8") as file:
         file.write(f"{date};{sleep_duration};{light_sleep_duration};{deep_sleep_duration};{rem_duration}\n")
 
 
 def clear_data_file():
-    with open("sleep_data.txt", "w") as file:
+    with open("sleep_data.txt", "w", encoding="utf-8") as file:
         file.write("Data;Czas snu;Czas snu lekkiego;Czas snu głębokiego;Czas fazy REM\n")  # Zachowaj nagłówek
 
 
@@ -58,9 +59,9 @@ class SleepApp(QMainWindow):
         self.visualize_btn.clicked.connect(self.visualize_data)
         self.layout.addWidget(self.visualize_btn)
 
-        self.restart_visualize_btn = QPushButton("Restartuj wizualizację")
-        self.restart_visualize_btn.clicked.connect(self.visualize_data)
-        self.layout.addWidget(self.restart_visualize_btn)
+        self.group_btn = QPushButton("Grupuj dane dla miesiąca")
+        self.group_btn.clicked.connect(self.group_data_by_month)
+        self.layout.addWidget(self.group_btn)
 
         self.clear_btn = QPushButton("Wyczyść dane")
         self.clear_btn.clicked.connect(self.clear_data)
@@ -124,7 +125,7 @@ class SleepApp(QMainWindow):
             deep_sleep_durations = []
             rem_durations = []
 
-            with open("sleep_data.txt", "r") as file:
+            with open("sleep_data.txt", "r", encoding="utf-8") as file:
                 lines = file.readlines()[1:]
 
                 for line in lines:
@@ -159,6 +160,83 @@ class SleepApp(QMainWindow):
 
         except FileNotFoundError:
             QMessageBox.warning(self, "Błąd", "Plik z danymi snu nie został znaleziony.")
+        except Exception as e:
+            QMessageBox.warning(self, "Błąd", f"Wystąpił błąd: {e}")
+
+    def show_average_durations(self, avg_sleep_duration, avg_light_sleep_duration, avg_deep_sleep_duration,
+                               avg_rem_duration):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Średnie czasy snu")
+
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel(f"Średni czas snu: {avg_sleep_duration:.2f} godzin"))
+        layout.addWidget(QLabel(f"Średni czas snu lekkiego: {avg_light_sleep_duration:.2f} godzin"))
+        layout.addWidget(QLabel(f"Średni czas snu głębokiego: {avg_deep_sleep_duration:.2f} godzin"))
+        layout.addWidget(QLabel(f"Średni czas fazy REM: {avg_rem_duration:.2f} godzin"))
+
+        close_button = QPushButton("Zamknij")
+        close_button.clicked.connect(dialog.accept)
+        layout.addWidget(close_button)
+
+        dialog.setLayout(layout)
+        dialog.exec()
+
+    def group_data_by_month(self):
+        try:
+            month, ok = QInputDialog.getText(self, "Wybierz miesiąc", "Podaj miesiąc (YYYY-MM):")
+            if not ok or not month:
+                return
+            try:
+                datetime.strptime(month, "%Y-%m")
+            except ValueError:
+                QMessageBox.warning(self, "Błąd", "Proszę podać poprawny miesiąc w formacie YYYY-MM.")
+                return
+
+            dates = []
+            sleep_durations = []
+            light_sleep_durations = []
+            deep_sleep_durations = []
+            rem_durations = []
+
+            with open("sleep_data.txt", "r", encoding="utf-8") as file:
+                lines = file.readlines()[1:]
+
+                for line in lines:
+                    parts = line.strip().split(';')
+                    if len(parts) == 5 and parts[0].startswith(month):
+                        dates.append(parts[0])
+                        sleep_durations.append(float(parts[1]))
+                        light_sleep_durations.append(float(parts[2]))
+                        deep_sleep_durations.append(float(parts[3]))
+                        rem_durations.append(float(parts[4]))
+
+            if dates:
+                plt.suptitle(f'Wizualizacja danych snu za miesiąc {month}', fontsize=14)
+                plt.figure(figsize=(10, 6))
+                plt.plot(dates, sleep_durations, label='Czas snu', marker='o')
+                plt.plot(dates, light_sleep_durations, label='Czas snu lekkiego', marker='o')
+                plt.plot(dates, deep_sleep_durations, label='Czas snu głębokiego', marker='o')
+                plt.plot(dates, rem_durations, label='Czas fazy REM', marker='o')
+
+                avg_sleep_duration = np.mean(sleep_durations)
+                avg_light_sleep_duration = np.mean(light_sleep_durations)
+                avg_deep_sleep_duration = np.mean(deep_sleep_durations)
+                avg_rem_duration = np.mean(rem_durations)
+
+                plt.title(f'Wizualizacja danych snu dla {month}')
+                plt.xlabel('Data')
+                plt.ylabel('Czas (godziny)')
+                plt.xticks(rotation=45)
+                plt.legend()
+                plt.tight_layout()
+                plt.show()
+
+                self.show_average_durations(avg_sleep_duration, avg_light_sleep_duration, avg_deep_sleep_duration,
+                                            avg_rem_duration)
+
+            else:
+                QMessageBox.information(self, "Brak danych", "Brak danych dla wybranego miesiąca.")
+
         except Exception as e:
             QMessageBox.warning(self, "Błąd", f"Wystąpił błąd: {e}")
 
